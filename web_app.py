@@ -96,7 +96,25 @@ def init_db():
         """, ("admin", hash_password("admin123"), "System Administrator"))
 
     conn.commit()
+
+    # Seed initial data (students & attendance) if students table is empty
+    cursor.execute("SELECT COUNT(*) FROM students")
+    count = cursor.fetchone()[0]
+    if count == 0:
+        seed_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed_data.sql")
+        if os.path.exists(seed_file):
+            try:
+                with open(seed_file, "r", encoding="utf-8") as f:
+                    conn.executescript(f.read())
+                print("[INIT] Restored student records and attendance from seed_data.sql")
+            except Exception as e:
+                print(f"[INIT] Notice: seed_data import: {e}")
+
+    conn.commit()
     conn.close()
+
+# Initialize database on app startup (supports both local and cloud WSGI/gunicorn)
+init_db()
 
 def get_db_connection():
     """Establishes connection to sqlite database."""
@@ -4150,10 +4168,11 @@ def get_classes():
     return jsonify(classes)
 
 if __name__ == "__main__":
-    init_db()
+    port = int(os.environ.get("PORT", 5000))
     print("\n=======================================================")
     print(" [OK] EduManager Pro Web Dashboard is running!")
     print(" [AUTH] Login credentials: admin / admin123")
-    print(" [URL] Open in browser: http://127.0.0.1:5000")
+    print(f" [URL] Local: http://127.0.0.1:{port}")
+    print(f" [URL] Network: http://0.0.0.0:{port}")
     print("=======================================================\n")
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=port, debug=False)
